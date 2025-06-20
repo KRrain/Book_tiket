@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>VTC Slot Booking</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: url('image/bc.png') no-repeat center center fixed;
+      background-size: cover;
+      color: white;
+      text-align: center;
+    }
+
+    .header img {
+      width: 100%;
+      max-height: 150px;
+      object-fit: contain;
+    }
+
+    .form-container {
+      background: rgba(0, 0, 0, 0.5);
+      margin: 20px auto;
+      padding: 20px;
+      max-width: 500px;
+      border-radius: 10px;
+    }
+
+    input, button {
+      display: block;
+      width: 90%;
+      margin: 10px auto;
+      padding: 10px;
+      border-radius: 5px;
+      border: none;
+      font-size: 16px;
+    }
+
+    input {
+      background: #222;
+      color: white;
+    }
+
+    .slots {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .slot-btn {
+      background: black;
+      color: white;
+      border: 1px solid #444;
+      border-radius: 5px;
+      padding: 10px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+
+    .slot-btn.selected {
+      background: green;
+    }
+
+    .slot-btn.booked {
+      background: red;
+      cursor: not-allowed;
+    }
+
+    .submit-btn {
+      background: #ff4444;
+      color: white;
+      font-weight: bold;
+      animation: pulse 2s infinite;
+      border-radius: 10px;
+    }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.4); }
+      70% { box-shadow: 0 0 0 10px rgba(255, 0, 0, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }
+    }
+    
+    .clear-btn {
+      padding: 10px 20px;
+      background-color: #222;
+      color: #fff;
+      border: 1px solid red;
+      border-radius: 8px;
+      margin-top: 15px;
+      cursor: pointer;
+      transition: 0.2s ease;
+    }
+   
+    .clear-btn:hover {
+      background-color: #400;
+      transform: scale(1.05);
+    }
+
+    .reset-btn {
+      background: darkred;
+      color: white;
+      border-radius: 10px;
+      font-weight: bold;
+    }
+    
+    .clear-btn {
+  padding: 10px;
+  background-color: #222;
+  color: white;
+  border: 1px solid red;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.clear-btn:hover {
+  background-color: #400;
+}
+
+    .alert {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(50, 50, 50, 0.4);
+      border: 2px solid red;
+      padding: 20px 30px;
+      border-radius: 15px;
+      color: white;
+      font-size: 18px;
+      display: none;
+      z-index: 9999;
+    }
+
+    #bookingPanel {
+      display: none;
+      background: rgba(0, 0, 0, 0.7);
+      max-width: 700px;
+      margin: 20px auto;
+      padding: 20px;
+      border-radius: 15px;
+    }
+
+    #bookingList {
+      text-align: left;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <img src="image/hr.png" alt="Header">
+  </div>
+
+  <div class="form-container">
+    <input type="text" id="vtcName" placeholder="VTC Name" />
+    <input type="text" id="vtcRole" placeholder="VTC Role" />
+    <input type="url" id="vtcLink" placeholder="VTC Link" />
+    <input type="text" id="discordId" placeholder="Discord ID" />
+
+    <div class="slots" id="slotContainer"></div>
+
+    <button class="submit-btn" onclick="submitBooking()">Submit Booking</button>
+    <button id="clearForm" class="clear-btn" title="Clear selected slot and form inputs">
+  🧹 Clear Selection
+    </button>
+    <button class="reset-btn" onclick="resetAllSlots()">Reset All Slots</button>
+    <button class="reset-btn" onclick="toggleViewPanel()">View All Bookings</button>
+  </div>
+
+  <div id="bookingPanel">
+    <h2>All Bookings</h2>
+    <div id="bookingList"></div>
+  </div>
+
+  <div class="alert" id="alertBox"></div>
+  
+  <a href="admin.html" style="color:red; text-decoration:underline;">Admin Login</a>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+    import { getDatabase, ref, set, get, remove } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDDroX5R2fkfs76mjQXmHQ2ZAz9zTbVg90",
+      authDomain: "slot-book-8a1b9.firebaseapp.com",
+      databaseURL: "https://slot-book-8a1b9-default-rtdb.firebaseio.com",
+      projectId: "slot-book-8a1b9",
+      storageBucket: "slot-book-8a1b9.firebasestorage.app",
+      messagingSenderId: "162338367561",
+      appId: "1:162338367561:web:03d1eefdd2940a19a97798"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const slotContainer = document.getElementById("slotContainer");
+    const alertBox = document.getElementById("alertBox");
+    const totalSlots = 30;
+    let selectedSlot = null;
+    const bookedSlots = [];
+
+    function showAlert(message) {
+      alertBox.innerText = message;
+      alertBox.style.display = "block";
+      setTimeout(() => {
+        alertBox.style.display = "none";
+      }, 3000);
+    }
+
+    for (let i = 1; i <= totalSlots; i++) {
+      const btn = document.createElement("button");
+      btn.innerText = i;
+      btn.classList.add("slot-btn");
+      btn.dataset.slot = i;
+      btn.onclick = () => {
+        if (btn.classList.contains("booked")) return;
+        document.querySelectorAll(".slot-btn").forEach(b => b.classList.remove("selected"));
+        selectedSlot = parseInt(btn.dataset.slot);
+        btn.classList.add("selected");
+      };
+      slotContainer.appendChild(btn);
+    }
+
+    const bookingsRef = ref(db, "bookings");
+    get(bookingsRef).then(snapshot => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        Object.entries(data).forEach(([slotKey, booking]) => {
+          const slot = parseInt(slotKey.replace("slot", ""));
+          bookedSlots.push(slot);
+          const btn = document.querySelector(`.slot-btn[data-slot="${slot}"]`);
+          if (btn) {
+            btn.classList.add("booked");
+            btn.disabled = true;
+          }
+        });
+      }
+    });
+
+    window.submitBooking = () => {
+  const name = document.getElementById("vtcName").value.trim();
+  const role = document.getElementById("vtcRole").value.trim();
+  const link = document.getElementById("vtcLink").value.trim();
+  const discord = document.getElementById("discordId").value.trim();
+
+  if (!name || !role || !link || !discord || !selectedSlot) {
+    showAlert("Please fill all fields and select a slot.");
+    return;
+  }
+
+  get(bookingsRef).then(snapshot => {
+    if (snapshot.exists()) {
+      const data = snapshot.val();
+      const duplicate = Object.values(data).find(b =>
+        b.discordId === discord ||
+        b.vtcName.toLowerCase() === name.toLowerCase() ||
+        b.vtcLink.toLowerCase() === link.toLowerCase()
+      );
+
+      if (duplicate) {
+        showAlert("This Discord ID, VTC Name, or VTC Link has already been used.");
+        return;
+      }
+    }
+
+    const bookingData = {
+      vtcName: name,
+      vtcRole: role,
+      vtcLink: link,
+      discordId: discord,
+      slotNumber: selectedSlot,
+      timestamp: new Date().toISOString()
+    };
+
+    const slotRef = ref(db, "bookings/slot" + selectedSlot);
+    set(slotRef, bookingData).then(() => {
+      bookedSlots.push(selectedSlot);
+      const btn = document.querySelector(`.slot-btn[data-slot="${selectedSlot}"]`);
+      btn.classList.remove("selected");
+      btn.classList.add("booked");
+      btn.disabled = true;
+
+      showAlert(`Booking confirmed for slot ${selectedSlot}!`);
+      document.getElementById("vtcName").value = "";
+      document.getElementById("vtcRole").value = "";
+      document.getElementById("vtcLink").value = "";
+      document.getElementById("discordId").value = "";
+      selectedSlot = null;
+
+      // ✅ SEND DISCORD WEBHOOK
+      const webhookURL = "https://discord.com/api/webhooks/1337993520388112444/BB3fW9HaGCKCZKteAcXrFIwbIFL-oOvKvaumguvLEDXbIz0ogVMkcqgyKisd-hSRAj3I"; // Replace this
+      const mentionRoleId = "1330222929115480135";       // Replace with actual role ID
+
+      fetch(webhookURL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: `<@&${mentionRoleId}> A new VTC slot has been booked!`,
+          embeds: [{
+            title: `✅ VTC Slot Booked: Slot ${bookingData.slotNumber}`,
+            description: `🚛 **VTC Name:** ${bookingData.vtcName}\n\n🎖️**Role:** ${bookingData.vtcRole}\n\n🔗 **Link:** ${bookingData.vtcLink}\n\n🆔 **Discord ID:** ${bookingData.discordId}`,
+            color: 16711680,
+            image: {
+              url: "https://i.imgur.com/lFpsXWO.png"
+            },
+            timestamp: new Date().toISOString()
+          }]
+        })
+      }).then(() => {
+        console.log("Webhook sent!");
+      }).catch(err => {
+        console.error("Webhook failed:", err);
+      });
+    }).catch(err => {
+      console.error(err);
+      showAlert("Error booking. Try again.");
+    });
+  });
+};
+
+document.getElementById("clearForm").addEventListener("click", () => {
+  // Clear all input fields
+  document.getElementById("vtcName").value = "";
+  document.getElementById("vtcRole").value = "";
+  document.getElementById("vtcLink").value = "";
+  document.getElementById("discordId").value = "";
+
+  // Unselect slot (turn back to black)
+  document.querySelectorAll(".slot").forEach(button => {
+    button.style.backgroundColor = "black"; // Reset color
+    button.classList.remove("selected");    // Remove selected class
+  });
+
+  // Reset selected slot variable (if used)
+  selectedSlot = null;
+});
+
+    window.resetAllSlots = () => {
+      if (!confirm("Are you sure you want to reset all slots?")) return;
+      remove(bookingsRef).then(() => {
+        bookedSlots.length = 0;
+        document.querySelectorAll(".slot-btn").forEach(btn => {
+          btn.classList.remove("booked", "selected");
+          btn.disabled = false;
+        });
+        showAlert("All slots have been reset!");
+      }).catch(err => {
+        console.error(err);
+        showAlert("Failed to reset slots.");
+      });
+    };
+
+    window.toggleViewPanel = () => {
+      const panel = document.getElementById("bookingPanel");
+      const list = document.getElementById("bookingList");
+      if (panel.style.display === "none") {
+        panel.style.display = "block";
+        list.innerHTML = "<p>Loading...</p>";
+        get(bookingsRef).then(snapshot => {
+          if (!snapshot.exists()) {
+            list.innerHTML = "<p>No bookings found.</p>";
+            return;
+          }
+          const data = snapshot.val();
+          let html = "<ul>";
+          //Booked slot view
+          Object.values(data).forEach(booking => {
+                html += `<li style="margin-bottom:10px;">
+            <strong>Slot ${booking.slotNumber}</strong> — ${booking.vtcName}
+               <hr>
+              </li>`;
+             });
+          html += "</ul>";
+          list.innerHTML = html;
+        });
+      } else {
+        panel.style.display = "none";
+      }
+    };
+  </script>
+</body>
+</html>

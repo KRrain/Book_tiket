@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Login</title>
+  <style>
+    body {
+      background: #111;
+      color: white;
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    h1 {
+      margin-bottom: 20px;
+    }
+    input, button {
+      padding: 10px;
+      margin: 5px;
+      border: 1px solid red;
+      border-radius: 8px;
+      background: #222;
+      color: white;
+      font-size: 16px;
+    }
+    #adminPanel {
+      display: none;
+      margin-top: 30px;
+      border: 1px solid red;
+      padding: 20px;
+      border-radius: 10px;
+      background: rgba(0, 0, 0, 0.8);
+    }
+    .alert {
+      background-color: rgba(50, 50, 50, 0.6);
+      color: white;
+      border: 1px solid red;
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 8px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>Admin Login</h1>
+
+  <div id="loginForm">
+    <input type="email" id="email" placeholder="Admin Email" /><br />
+    <input type="password" id="password" placeholder="Password" /><br />
+    <button id="loginBtn">🔐 Login</button>
+    <div class="alert" id="loginAlert"></div>
+  </div>
+
+  <div id="adminPanel">
+    <h2>Welcome Admin</h2>
+    <button id="resetSlots">🔁 Reset All Slots</button>
+    <button id="logoutBtn">🚪 Logout</button>
+    <div class="alert" id="adminAlert"></div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDDroX5R2fkfs76mjQXmHQ2ZAz9zTbVg90",
+      authDomain: "slot-book-8a1b9.firebaseapp.com",
+      projectId: "slot-book-8a1b9",
+      storageBucket: "slot-book-8a1b9.appspot.com",
+      messagingSenderId: "162338367561",
+      appId: "1:162338367561:web:03d1eefdd2940a19a97798"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth();
+
+    const loginBtn = document.getElementById("loginBtn");
+    const logoutBtn = document.getElementById("logoutBtn");
+    const loginAlert = document.getElementById("loginAlert");
+    const adminPanel = document.getElementById("adminPanel");
+    const loginForm = document.getElementById("loginForm");
+    const adminAlert = document.getElementById("adminAlert");
+
+    loginBtn.addEventListener("click", () => {
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+
+      signInWithEmailAndPassword(auth, email, password)
+        .then(() => {
+          loginAlert.style.display = "none";
+        })
+        .catch((error) => {
+          loginAlert.innerText = "Login failed: " + error.message;
+          loginAlert.style.display = "block";
+        });
+    });
+
+    logoutBtn.addEventListener("click", () => {
+      signOut(auth);
+    });
+
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        adminPanel.style.display = "block";
+        loginForm.style.display = "none";
+      } else {
+        adminPanel.style.display = "none";
+        loginForm.style.display = "block";
+      }
+    });
+
+    document.getElementById("resetSlots").addEventListener("click", () => {
+      if (confirm("Reset all slots from database?")) {
+        adminAlert.innerText = "All slots would be reset. (DB logic can go here)";
+        adminAlert.style.display = "block";
+        setTimeout(() => adminAlert.style.display = "none", 2000);
+      }
+    });
+  </script>
+</body>
+</html>
